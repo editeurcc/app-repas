@@ -10,6 +10,10 @@
 
   // Track API availability to avoid repeated failing requests (reduces console 404 noise)
   let API_AVAILABLE = null; // null=unknown, true/false = known
+
+  // Search request sequencing to only render latest response
+  let searchCounter = 0;
+
   function getApiBaseForClient() {
     let apiBase = (window && window.API_BASE) ? String(window.API_BASE).replace(/\/$/, '') : '';
     const low = (apiBase || '').toString().toLowerCase();
@@ -51,27 +55,35 @@
     `;
   }
 
-  async function renderResults(list) {
+  async function renderResults(list, searchId) {
+    // If a newer search started, ignore this response
+    if (searchId !== searchCounter) return;
+
     // Deduplicate incoming results (avoid duplicate recipes shown)
     try {
       const seen = new Set();
       const unique = [];
+
+      const normalizeText = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();
+
       for (const r of list || []) {
-        const key = (r && (r.url || r.link || r.title || r.name) || '').toString();
-        if (key) {
-          if (seen.has(key)) continue;
+        const url = (r && (r.url || r.link) || '').toString().trim();
+        let key = url || '';
+        if (!key) {
+          const title = normalizeText(r && (r.title || r.name) || '');
+          const tokens = title.split(/\s+/).filter(Boolean).sort().join(' ');
+          key = tokens || JSON.stringify(r || {}).slice(0,200);
+        }
+        if (!seen.has(key)) {
           seen.add(key);
-          unique.push(r);
-        } else {
-          // fallback: stringify small snapshot to detect duplicates
-          const k2 = JSON.stringify(r || {}).slice(0,200);
-          if (seen.has(k2)) continue;
-          seen.add(k2);
           unique.push(r);
         }
       }
       list = unique;
     } catch (e) { /* ignore dedupe errors and proceed with original list */ }
+
+    // final check again for latest
+    if (searchId !== searchCounter) return;
 
     resultsContainer.innerHTML = '';
     if (!list || list.length === 0) {
@@ -79,8 +91,6 @@
       return;
     }
 
-    const frag = document.createDocumentFragment();
-    // We'll reuse menu-grid styles by injecting cards as innerHTML
     const favs = await loadFavorites();
     const wrapper = document.createElement('div');
     wrapper.className = 'menu-grid';
@@ -113,15 +123,11 @@
     // Attach click handler per card to toggle expansion (prevents multiple cards opening)
     wrapper.querySelectorAll('.meal-card').forEach(card => {
       card.addEventListener('click', (e) => {
-        // prevent bubbling to other handlers
         e.stopPropagation();
         if (e.target.closest('.btn-swap')) return;
-
-        // Delegate toggle behavior to app's toggleCuisine if available
         if (window.toggleCuisine && typeof window.toggleCuisine === 'function') {
           window.toggleCuisine(e, card);
         } else {
-          // fallback local toggle
           const isExpanded = card.classList.contains('expanded');
           const container = resultsContainer;
           if (container) {
@@ -143,7 +149,6 @@
         const matched = list.find(l => l.title === title || l.name === title);
         if (matched && matched.url) {
           removeFavorite(matched.url);
-          // update UI
           card.classList.remove('is-favorite');
           btn.style.display = 'none';
         }
@@ -174,7 +179,6 @@
     if (!recipe || !recipe.url) return;
     const apiBase = getApiBaseForClient();
     if (API_AVAILABLE === false || !apiBase) {
-      // fallback to localStorage only
       const favs = loadFavoritesSync();
       if (!favs.some(f => f.url === recipe.url)) {
         favs.unshift({ title: recipe.title || recipe.name, url: recipe.url, time: recipe.time || '', calories: recipe.calories || '', ingredients: recipe.ingredients || [] });
@@ -195,7 +199,6 @@
         }
       }
     }
-    // mark UI
     document.querySelectorAll('.meal-card').forEach(card => {
       const t = card.querySelector('.meal-name')?.textContent;
       if (t === (recipe.title || recipe.name)) card.classList.add('is-favorite');
@@ -221,13 +224,6 @@
         localStorage.setItem('favorites', JSON.stringify(favs));
       }
     }
-    // update UI
-    document.querySelectorAll('.meal-card').forEach(card => {
-      const t = card.querySelector('.meal-name')?.textContent;
-      if (t) {
-        // no-op
-      }
-    });
     renderFavorites();
   }
 
@@ -246,7 +242,6 @@
     wrap.className = 'menu-grid';
     wrap.innerHTML = favs.map(f => createCard(f, true)).join('');
     container.appendChild(wrap);
-    // Attach delete handlers for favorites view
     wrap.querySelectorAll('.btn-fav-delete').forEach(btn => {
       btn.addEventListener('click', async (e)=>{
         e.stopPropagation();
@@ -258,8 +253,6 @@
         }
       });
     });
-
-    // Attach action button handlers (add/view) to favorites cards
     wrap.querySelectorAll('[data-action]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -279,33 +272,27 @@
         }
       });
     });
-
-    // Open favorites in a centered modal to avoid expanding entire row
     wrap.querySelectorAll('.meal-card').forEach(card => {
       card.addEventListener('click', (e) => {
         e.stopPropagation();
         if (e.target.closest('.btn-swap')) return;
         const title = card.dataset.title || card.querySelector('.meal-name')?.textContent;
         const url = card.dataset.url || (card.querySelector('a') && card.querySelector('a').href) || '';
-        console.debug('[favorites] card clicked title=', title, 'url=', url);
-        // prefer matching by URL
         let matched = null;
         if (url) matched = favs.find(ff => ff.url === url);
         if (!matched && title) matched = favs.find(ff => ff.title === title || ff.name === title || ff.url === title);
-        // If we didn't find a match in the loaded favorites, build a minimal recipe from the card DOM
         if (!matched) {
           const timeText = card.querySelector('.meal-time')?.textContent || '';
           const ingEls = Array.from(card.querySelectorAll('ul li'));
           const ingredients = ingEls.map(li => ({ raw: li.textContent.trim() }));
           matched = { title: title || card.querySelector('.meal-name')?.textContent || 'Recette', url: url || '', time: timeText.replace(/\n/g,' ').trim(), ingredients, preparation: [] };
-          console.debug('[favorites] built recipe from card', matched);
         }
         if (matched) showRecipeModal(matched);
       });
     });
   }
 
-  // Modal helpers
+  // Modal helpers (unchanged)
   function buildModalHtml(recipe) {
     const ingredientsHtml = (recipe.ingredients || []).map(i => `<li>${(i.quantity||i.quantite||'') + (i.unit?(' '+i.unit):'')} ${i.name||i.raw||''}</li>`).join('');
     const prepHtml = (recipe.preparation || recipe.steps || []).map((s,idx)=>`<li><b>Étape ${idx+1}:</b> ${s}</li>`).join('');
@@ -326,7 +313,6 @@
   }
 
   function showRecipeModal(recipe) {
-    console.debug('[recipe-modal] show for', recipe && (recipe.url || recipe.title));
     const modal = document.getElementById('recipe-modal');
     const titleEl = document.getElementById('recipe-modal-title');
     const body = document.getElementById('recipe-modal-body');
@@ -335,14 +321,11 @@
     if (!modal || !body) return;
     titleEl.textContent = recipe.title || recipe.name || 'Recette';
     body.innerHTML = buildModalHtml(recipe);
-    // set view url
     viewBtn.onclick = () => { if (recipe.url) window.open(recipe.url, '_blank'); };
     addBtn.onclick = () => { if (window.addExternalRecipe) window.addExternalRecipe(recipe); addFavorite(recipe); hideRecipeModal(); };
-    // close handlers
     document.getElementById('recipe-modal-close').onclick = hideRecipeModal;
     modal.onclick = (e) => { if (e.target === modal) hideRecipeModal(); };
     modal.classList.remove('hidden');
-    // ensure CSS that uses .active shows the modal (opacity/pointer-events)
     modal.classList.add('active');
   }
 
@@ -353,15 +336,12 @@
     modal.classList.remove('active');
   }
 
-  // Expose modal helpers for debugging from DevTools
-  try { window.showRecipeModal = showRecipeModal; window.hideRecipeModal = hideRecipeModal; } catch(e) { /* ignore in some contexts */ }
+  try { window.showRecipeModal = showRecipeModal; window.hideRecipeModal = hideRecipeModal; } catch(e) {}
 
   async function fetchSearch(q) {
     if (!q || q.trim().length < 2) return [];
     try {
-      // Allow overriding the API base from the page (e.g. set window.API_BASE = 'https://api.example.com')
       let apiBase = (window && window.API_BASE) ? String(window.API_BASE).replace(/\/$/, '') : '';
-      // Treat placeholder or unreplaced values as empty so we don't attempt invalid cross-origin calls
       const low = (apiBase || '').toString().toLowerCase();
       if (low.includes('replace') || low.includes('replace_with') || low.includes('your_api')) apiBase = '';
       const apiUrl = apiBase ? `${apiBase}/api/search?q=${encodeURIComponent(q)}` : `/api/search?q=${encodeURIComponent(q)}`;
@@ -370,14 +350,9 @@
       const json = await res.json();
       return json.results || json || [];
     } catch (err) {
-      // If API is not available (404 / CORS / network), fall back to a local static JSON
       try {
-        // Try relative path first (works when app is hosted under a subpath),
-        // then fall back to root-based path.
         let mockRes = await fetch('mock-recipes.json');
-        if (!mockRes || !mockRes.ok) {
-          mockRes = await fetch('/mock-recipes.json');
-        }
+        if (!mockRes || !mockRes.ok) { mockRes = await fetch('/mock-recipes.json'); }
         if (mockRes && mockRes.ok) {
           const arr = await mockRes.json();
           const qn = q.toString().toLowerCase();
@@ -391,9 +366,7 @@
           });
           return filtered;
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) {}
       console.warn('Recherche API échouée, aucun résultat', err);
       return [];
     }
@@ -401,19 +374,17 @@
 
   const doSearch = debounce(async (evt) => {
     const q = input.value.trim();
-    if (q.length < 2) {
-      resultsContainer.innerHTML = '';
-      return;
-    }
+    if (q.length < 2) { resultsContainer.innerHTML = ''; return; }
+    const myId = ++searchCounter; // capture id for this request
     const results = await fetchSearch(q);
-    renderResults(results);
+    // Only render if this is the latest search id
+    if (myId === searchCounter) await renderResults(results, myId);
   }, 350);
 
   input.addEventListener('input', doSearch);
   form.addEventListener('submit', async (e) => { e.preventDefault(); await doSearch(); });
 
-  // Render favorites on initial load so the favorites-section is populated
-  // even before the first search is performed.
+  // Render favorites on initial load
   renderFavorites();
 
 })();
