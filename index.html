@@ -50,7 +50,8 @@
       </form>
     </div>
     <div style="width:100%; display:flex; justify-content:center;">
-      <p id="search-hint" class="search-hint" style="margin-top:0.5rem;">Patientez pendant le chargement des recettes…</p>
+      <p id="search-hint" class="search-hint" style="margin-top:0.5rem;">Patientez pendant le chargement des recettes…
+      </p>
     </div>
   </header>
 
@@ -116,3 +117,33 @@
       </div>
     </div>
   </div>
+
+  <!-- Modal for recipe preview -->
+  <div id="recipe-modal" class="modal-overlay hidden">
+    <div class="modal-content recipe-modal-content">
+      <div class="modal-header">
+        <h3 id="recipe-modal-title">Recette</h3>
+        <button id="recipe-modal-close" class="btn-close">&times;</button>
+      </div>
+      <div id="recipe-modal-body" class="modal-body"></div>
+      <div class="modal-footer">
+        <button id="recipe-modal-add" class="btn-primary">➕ Ajouter au menu</button>
+        <button id="recipe-modal-view" class="btn-marmiton">🍲 Voir sur Marmiton</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bouton Retour en Haut avec Emoji Chef -->
+  <button id="btn-back-to-top" class="btn-back-to-top" title="Retour en haut">👨‍🍳</button>
+
+  <script src="recipes.js"></script>
+  <!-- Configure a public API base if your server is deployed elsewhere.
+       Replace the placeholder URL with your deployed API (example: https://my-app.onrender.com) -->
+  <script>
+    window.API_BASE = window.API_BASE || 'https://app-repas.onrender.com';
+  </script>
+  <script src="search-ui.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>
