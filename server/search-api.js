@@ -380,6 +380,69 @@ app.get('/api/search', async (req, res) => {
 
   console.log('[search] cache miss for', cacheKey);
 
+  // Fast search mode: return lightweight items (title + url + source) without full page extraction
+  const fastParam = (req.query.fast === '1' || String(req.query.fast).toLowerCase() === 'true');
+  const FAST_SEARCH_ENABLED = fastParam || process.env.FAST_SEARCH === '1';
+  if (FAST_SEARCH_ENABLED) {
+    try {
+      console.log('[search] fast mode for', q);
+      const domains = ['marmiton.org','jow.fr','irealime.com'];
+      const results = [];
+      const seen = new Set();
+      for (const domain of domains) {
+        try {
+          let url;
+          if (domain.includes('marmiton')) url = `https://www.marmiton.org/recettes/recherche.aspx?aqt=${encodeURIComponent(q)}`;
+          else if (domain.includes('jow')) url = `https://www.jow.fr/recipes?search=${encodeURIComponent(q)}`;
+          else if (domain.includes('irealime')) url = `https://www.irealime.com/?s=${encodeURIComponent(q)}`;
+          if (!url) continue;
+          const resp = await fetch(url, { headers: { 'User-Agent': 'Mon-Menu-Bot/1.0 (+https://example.local)' }, timeout: 10000 });
+          if (!resp.ok) continue;
+          const html = await resp.text();
+          const $ = cheerio.load(html);
+          // Domain-specific quick parsing
+          if (domain.includes('marmiton')) {
+            $('li.search-list__item a.card-content__title, a.card-content__title').each((i, a) => {
+              try {
+                const href = $(a).attr('href');
+                const title = $(a).text().trim();
+                if (!href || !title) return;
+                const full = href.startsWith('http') ? href : new URL(href, url).toString();
+                const key = full.split('#')[0];
+                if (seen.has(key)) return;
+                seen.add(key);
+                results.push({ title, url: full, source: new URL(full).hostname });
+              } catch (e) {}
+            });
+          } else {
+            // generic anchors containing probable recipe path segments
+            $('a[href]').each((i, a) => {
+              try {
+                const href = $(a).attr('href');
+                if (!href) return;
+                const full = href.startsWith('http') ? href : new URL(href, url).toString();
+                const low = full.toLowerCase();
+                if (!/recette|recipe|recipes|\/r\//i.test(low)) return;
+                const title = ($(a).text() || '').trim() || '';
+                const key = full.split('#')[0];
+                if (seen.has(key)) return;
+                seen.add(key);
+                results.push({ title, url: full, source: new URL(full).hostname });
+              } catch (e) {}
+            });
+          }
+        } catch (e) {
+          console.warn('[search] fast domain error', domain, e && e.message);
+        }
+        if (results.length >= 8) break;
+      }
+      setCached(cacheKey, results.slice(0, 8));
+      return res.json({ results: results.slice(0, 8) });
+    } catch (e) {
+      console.warn('[search] fast mode failed', e && e.message);
+    }
+  }
+
   // If LIVE_SEARCH enabled and SERPAPI_KEY is provided, perform live search
   if (LIVE_SEARCH && SERPAPI_KEY) {
     try {
@@ -468,11 +531,29 @@ app.get('/api/search', async (req, res) => {
     try {
       const seenEarly = new Set();
       const dedupEarly = [];
+      const canonicalizeUrl = u => {
+        try {
+          const url = new URL(String(u));
+          // remove common tracking params
+          url.search = url.search.replace(/([?&])utm_[^=]+=[^&]*/g, '').replace(/^&/, '');
+          url.hash = '';
+          // collapse duplicate slashes and trim trailing slash
+          const path = url.pathname.replace(/\/+/g, '/').replace(/\/$/, '');
+          return (url.origin + path).toString();
+        } catch (e) {
+          return String(u || '').trim();
+        }
+      };
       const normalizeKey = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();
+      const normalizedTitleKey = t => {
+        const k = normalizeKey(t || '');
+        return k.split(/\s+/).filter(Boolean).sort().join(' ');
+      };
       for (const it of collected) {
         try {
-          const urlKey = it && it.url ? String(it.url).trim() : '';
-          let key = urlKey || normalizeKey(it && (it.title || it.name) || '');
+          const urlKeyRaw = it && it.url ? String(it.url).trim() : '';
+          const urlKey = urlKeyRaw ? canonicalizeUrl(urlKeyRaw) : '';
+          let key = urlKey || normalizedTitleKey(it && (it.title || it.name) || '');
           if (!key) key = JSON.stringify(it || {}).slice(0,200);
           if (!seenEarly.has(key)) { seenEarly.add(key); dedupEarly.push(it); }
         } catch (e) { /* skip item on error */ }
@@ -617,16 +698,26 @@ app.get('/api/search', async (req, res) => {
     let results = final.map(f => f.item).slice(0, 8);
     // Server-side deduplication: prefer unique by URL, fallback to normalized title
     try {
+      const canonicalizeUrl = u => {
+        try {
+          const url = new URL(String(u));
+          url.search = url.search.replace(/([?&])utm_[^=]+=[^&]*/g, '').replace(/^&/, '');
+          url.hash = '';
+          const path = url.pathname.replace(/\/+/g, '/').replace(/\/$/, '');
+          return (url.origin + path).toString();
+        } catch (e) { return String(u || '').trim(); }
+      };
+      const normalize = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();
+      const normalizedTitleKey = t => normalize(t || '').split(/\s+/).filter(Boolean).sort().join(' ');
       const seen = new Set();
       const dedup = [];
-      const normalize = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();
       for (const r of results) {
         try {
-          const urlKey = (r && r.url) ? String(r.url).trim() : '';
+          const urlKeyRaw = (r && r.url) ? String(r.url).trim() : '';
+          const urlKey = urlKeyRaw ? canonicalizeUrl(urlKeyRaw) : '';
           let key = urlKey || '';
           if (!key) {
-            const title = normalize(r && (r.title || r.name) || '');
-            const tokens = title.split(/\s+/).filter(Boolean).sort().join(' ');
+            const tokens = normalizedTitleKey(r && (r.title || r.name) || '');
             key = tokens || JSON.stringify(r || '').slice(0,200);
           }
           if (!seen.has(key)) {
