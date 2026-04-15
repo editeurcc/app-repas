@@ -52,6 +52,27 @@
   }
 
   async function renderResults(list) {
+    // Deduplicate incoming results (avoid duplicate recipes shown)
+    try {
+      const seen = new Set();
+      const unique = [];
+      for (const r of list || []) {
+        const key = (r && (r.url || r.link || r.title || r.name) || '').toString();
+        if (key) {
+          if (seen.has(key)) continue;
+          seen.add(key);
+          unique.push(r);
+        } else {
+          // fallback: stringify small snapshot to detect duplicates
+          const k2 = JSON.stringify(r || {}).slice(0,200);
+          if (seen.has(k2)) continue;
+          seen.add(k2);
+          unique.push(r);
+        }
+      }
+      list = unique;
+    } catch (e) { /* ignore dedupe errors and proceed with original list */ }
+
     resultsContainer.innerHTML = '';
     if (!list || list.length === 0) {
       resultsContainer.innerHTML = '<p style="color:var(--text-muted); grid-column:1/-1; text-align:center; padding:1rem;">Aucun résultat</p>';
