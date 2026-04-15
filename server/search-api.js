@@ -404,7 +404,7 @@ app.get('/api/search', async (req, res) => {
 
   // When LIVE_SEARCH not used, try site-specific scraping for the target domains
   const targetDomains = ['marmiton.org','jow.fr','irealime.com'];
-  const collected = [];
+  let collected = [];
   for (const domain of targetDomains) {
     try {
       const cacheKeySite = `site:${domain}:` + q.toLowerCase();
@@ -464,6 +464,21 @@ app.get('/api/search', async (req, res) => {
   }
 
   if (collected.length > 0) {
+    // Early deduplication: remove exact-URL duplicates and near-duplicates by normalized title
+    try {
+      const seenEarly = new Set();
+      const dedupEarly = [];
+      const normalizeKey = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();
+      for (const it of collected) {
+        try {
+          const urlKey = it && it.url ? String(it.url).trim() : '';
+          let key = urlKey || normalizeKey(it && (it.title || it.name) || '');
+          if (!key) key = JSON.stringify(it || {}).slice(0,200);
+          if (!seenEarly.has(key)) { seenEarly.add(key); dedupEarly.push(it); }
+        } catch (e) { /* skip item on error */ }
+      }
+      collected = dedupEarly;
+    } catch (e) { /* ignore early dedupe errors */ }
     console.log('[search] collected recipes count=', collected.length);
     console.log('[search] collected titles=', collected.map(i=>i.title).slice(0,20));
     // Remove Marmiton items whose URL does not match a recipe URL pattern
@@ -600,6 +615,28 @@ app.get('/api/search', async (req, res) => {
     // Sort by score desc
     final.sort((a,b) => b.score - a.score);
     let results = final.map(f => f.item).slice(0, 8);
+    // Server-side deduplication: prefer unique by URL, fallback to normalized title
+    try {
+      const seen = new Set();
+      const dedup = [];
+      const normalize = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();
+      for (const r of results) {
+        try {
+          const urlKey = (r && r.url) ? String(r.url).trim() : '';
+          let key = urlKey || '';
+          if (!key) {
+            const title = normalize(r && (r.title || r.name) || '');
+            const tokens = title.split(/\s+/).filter(Boolean).sort().join(' ');
+            key = tokens || JSON.stringify(r || '').slice(0,200);
+          }
+          if (!seen.has(key)) {
+            seen.add(key);
+            dedup.push(r);
+          }
+        } catch (e) { /* skip problematic item */ }
+      }
+      results = dedup.slice(0, 8);
+    } catch (e) { /* ignore dedupe errors */ }
     // If still empty, but we have sourceCollection, return top sourceCollection (best effort)
     if (results.length === 0 && sourceCollection.length > 0) {
       results = sourceCollection.slice(0,8);
