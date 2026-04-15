@@ -160,7 +160,7 @@ async function extractRecipeFromUrl(pageUrl) {
         const raw = (i.raw || i).toString().trim();
         // try to pull leading quantity and unit (handle fractions like 1/2)
         const units = 'g|kg|mg|ml|cl|l|cuillères|cuillère|càs|c.à.s|c.à.c|càc|tasse|pinch|pincée|pièce|piece|stk|slice|tranche|bouquet';
-        const m = raw.match(/^([0-9]+[0-9\/,\.\s\/]*)\s*(?:(${units}))?\s*(.*)/i);
+        const m = raw.match(/^([0-9]+[0-9\/,,\.\s\/]*)\s*(?:(${units}))?\s*(.*)/i);
         if (m) {
           const qty = m[1].replace(/\s+/g,' ').trim();
           const unit = (m[2] || '').trim();
@@ -168,7 +168,7 @@ async function extractRecipeFromUrl(pageUrl) {
           return { quantity: qty, unit: unit, name: name, raw };
         }
         // try quantity + name
-        const m2 = raw.match(/^([0-9\/,\.\s\/]+)\s+(.*)$/);
+        const m2 = raw.match(/^([0-9\/,,\.\s\/]*)\s+(.*)$/);
         if (m2) return { quantity: m2[1].trim(), unit: '', name: m2[2].trim(), raw };
         return { quantity: '', unit: '', name: raw, raw };
       });
