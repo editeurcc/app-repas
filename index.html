@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menu de la Semaine</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="icons/favicon-96x96.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-icon-180x180.png">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Menu de la Semaine">
+</head>
+
+<body class="dark-mode">
+  <header style="position: relative;">
+    <div class="theme-switch-wrapper">
+      <label class="theme-switch" for="theme-toggle" title="Changer de thème">
+        <input type="checkbox" id="theme-toggle" />
+        <div class="theme-slider">
+          <span class="theme-icon-sun">☀️</span>
+          <span class="theme-icon-moon">🌙</span>
+        </div>
+      </label>
+    </div>
+    <div class="title-wrapper">
+      <h1 class="main-title">
+        Mon <span class="magic-text">Menu</span> de la Semaine
+      </h1>
+      <p class="subtitle">Planifiez, cuisinez, savourez ✨</p>
+    </div>
+    <div
+      style="display:flex; gap:0.75rem; justify-content:center; align-items:center; margin-top: 0.75rem; flex-wrap:wrap;">
+      <button id="btn-regenerer" class="btn-primary">🔄 Nouveau Menu</button>
+      <form id="recipe-search-form" style="display:flex; align-items:center; gap:0.5rem;" onsubmit="return false;">
+        <input id="recipe-search-input" type="search" placeholder="Rechercher une recette (ex: macaroni)"
+          aria-label="Rechercher une recette"
+          style="padding:0.6rem 0.9rem; border-radius:999px; border:1px solid rgba(0,0,0,0.06); min-width:220px; max-width:460px; background:transparent; color:inherit;">
+        <button id="recipe-search-btn" class="btn-secondary" type="submit">🔎</button>
+      </form>
+    </div>
+  </header>
+
+  <main>
+    <section id="search-results-section" style="max-width:1400px; margin:0 auto 2rem;">
+      <div id="search-results" class="menu-grid"></div>
+    </section>
+    <section id="menu-container" class="menu-grid">
+      <!-- Days will be injected here -->
+    </section>
+
+    <!-- Favorites Section -->
+    <section id="favorites-section" style="max-width:1400px; margin:0 auto 2rem;">
+      <h2 style="color:var(--day-title-color); margin-bottom:0.75rem;">⭐ Favoris</h2>
+      <div id="favorites-container" class="menu-grid"></div>
+    </section>
+
+    <section id="shopping-list-section">
+      <div class="shopping-header"
+        style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <h2 style="margin: 0;">🛒 Liste de courses</h2>
+          <button id="btn-help" class="btn-secondary"
+            style="padding: 0.2rem 0.6rem; background: rgba(99, 102, 241, 0.1); color: var(--primary-color); border-color: rgba(99, 102, 241, 0.2); font-size: 0.9rem;"
+            title="Comment ça marche ?">❔ Aide</button>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button id="btn-uncheck-all" class="btn-secondary"
+            style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2);">❌ Tout
+            décocher</button>
+          <button id="btn-copy" class="btn-secondary">📋 Copier la liste</button>
+        </div>
+      </div>
+      <div id="shopping-list-container" class="shopping-grid">
+        <!-- Shopping list will be injected here -->
+      </div>
+    </section>
+  </main>
+
+  <div id="toast-container"></div>
+
+  <!-- Modal d'Aide -->
+  <div id="help-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>💡 Mieux comprendre la liste</h3>
+        <button id="btn-close-modal" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p><strong>1. La grande calculatrice 🧮</strong><br>La liste en bas rassemble et additionne automatiquement tous
+          les ingrédients nécessaires pour cuisiner les 14 repas de votre semaine.</p>
+        <p><strong>2. Les cases à cocher ✅</strong><br>Une case vide signifie "À acheter". Une case cochée (elle se
+          barre) signifie "J'en ai déjà dans mon cellier". Le sel, poivre et l'huile sont cochés par défaut.</p>
+        <p><strong>3. Le bouton ✨ Puisé dans mon cellier</strong><br>Situé sur chaque recette en haut, ce bouton repère
+          les ingrédients du plat et les cherche en bas pour les cocher à votre place en un clic !</p>
+        <p><strong>4. Le bouton 📋 Copier la liste</strong><br>Il ne copie UNIQUEMENT que les cases vides ! Le texte
+          ignorera vos réserves. C'est la liste parfaite à coller dans vos notes au supermarché.</p>
+        <p><strong>5. Le bouton ❌ Tout décocher</strong><br>Il remet toutes les cases à zéro (même le sel et le poivre)
+          au cas où vos placards sont totalement vides et que vous repartez de zéro.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-understood" class="btn-primary" style="width: 100%;">J'ai compris !</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for recipe preview -->
+  <div id="recipe-modal" class="modal-overlay hidden">
+    <div class="modal-content recipe-modal-content">
+      <div class="modal-header">
+        <h3 id="recipe-modal-title">Recette</h3>
+        <button id="recipe-modal-close" class="btn-close">&times;</button>
+      </div>
+      <div id="recipe-modal-body" class="modal-body"></div>
+      <div class="modal-footer">
+        <button id="recipe-modal-add" class="btn-primary">➕ Ajouter au menu</button>
+        <button id="recipe-modal-view" class="btn-marmiton">🍲 Voir sur Marmiton</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bouton Retour en Haut avec Emoji Chef -->
+  <button id="btn-back-to-top" class="btn-back-to-top" title="Retour en haut">👨‍🍳</button>
+
+  <script src="recipes.js"></script>
+  <!-- Configure a public API base if your server is deployed elsewhere.
+       Replace the placeholder URL with your deployed API (example: https://my-app.onrender.com) -->
+  <script>
+    window.API_BASE = window.API_BASE || 'https://REPLACE_WITH_YOUR_API_URL';
+  </script>
+  <script src="search-ui.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>

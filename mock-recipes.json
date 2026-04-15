@@ -1,0 +1,42 @@
+[
+  {
+    "title": "Poulet au curry rapide",
+    "time": "30 min",
+    "calories": "450",
+    "ingredients": [
+      { "quantity": "500", "unit": "g", "name": "filet de poulet" },
+      { "quantity": "1", "unit": "", "name": "oignon" },
+      { "quantity": "2", "unit": "càs", "name": "pâte de curry" },
+      { "quantity": "200", "unit": "ml", "name": "lait de coco" }
+    ],
+    "preparation": ["Couper le poulet en morceaux.", "Faire revenir l'oignon.", "Ajouter la pâte de curry et le poulet.", "Verser le lait de coco et mijoter 15 minutes."],
+    "url": "https://example.com/poulet-au-curry",
+    "source": "mock"
+  },
+  {
+    "title": "Salade de poulet grillé",
+    "time": "20 min",
+    "calories": "320",
+    "ingredients": [
+      { "quantity": "300", "unit": "g", "name": "poulet grillé" },
+      { "quantity": "1", "unit": "", "name": "salade" },
+      { "quantity": "2", "unit": "càs", "name": "vinaigrette" }
+    ],
+    "preparation": ["Découper le poulet.", "Mélanger avec la salade.", "Ajouter la vinaigrette."],
+    "url": "https://example.com/salade-poulet",
+    "source": "mock"
+  },
+  {
+    "title": "Poulet rôti aux herbes",
+    "time": "90 min",
+    "calories": "600",
+    "ingredients": [
+      { "quantity": "1", "unit": "kg", "name": "poulet entier" },
+      { "quantity": "2", "unit": "gousses", "name": "ail" },
+      { "quantity": "1", "unit": "càs", "name": "herbes de Provence" }
+    ],
+    "preparation": ["Assaisonner le poulet.", "Rôtir 1h15 au four."],
+    "url": "https://example.com/poulet-roti",
+    "source": "mock"
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "name": "app-repas-local",
+  "version": "1.0.0",
+  "description": "Serveur local pour tester la recherche de recettes (mock)",
+  "main": "server/search-api.js",
+  "scripts": {
+    "start": "node server/search-api.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7",
+    "cheerio": "^1.0.0-rc.12",
+    "playwright": "^1.44.0"
+  }
+}

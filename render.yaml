@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: app-repas-search-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    branch: main
+    instances: 1
