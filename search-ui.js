@@ -384,9 +384,25 @@
   }, 350);
 
   input.addEventListener('input', doSearch);
-  form.addEventListener('submit', async (e) => { e.preventDefault(); await doSearch(); });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = input.value.trim();
+    if (q.length < 2) { resultsContainer.innerHTML = ''; return; }
+    const myId = ++searchCounter;
+    try {
+      const results = await fetchSearch(q);
+      if (myId === searchCounter) await renderResults(results, myId);
+    } catch (err) {
+      console.warn('Recherche sur submit échouée', err);
+    }
+  });
 
   // Render favorites on initial load
   renderFavorites();
 
 })();
+
+
+---
+Commit message suggestion:
+"fix(ui): submit lance la recherche immédiatement et corrige affichage initial"
