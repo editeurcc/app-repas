@@ -401,8 +401,3 @@
   renderFavorites();
 
 })();
-
-
----
-Commit message suggestion:
-"fix(ui): submit lance la recherche immédiatement et corrige affichage initial"
