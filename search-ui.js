@@ -26,7 +26,7 @@
     const preparationHtml = (recipe.preparation || recipe.steps || []).slice(0,6).map((s,idx) => `<li><b>Étape ${idx+1}:</b> ${s}</li>`).join('');
     const sourceHost = recipe.source || (recipe.url ? new URL(recipe.url).hostname : 'externe');
     return `
-      <div class="meal-card external ${isFav ? 'is-favorite' : ''}" data-url="${recipe.url||''}" data-title="${(recipe.title||recipe.name||'').replace(/"/g,'&quot;')}">
+      <div class="meal-card external ${isFav ? 'is-favorite' : ''}" data-url="${recipe.url||''}" data-title="${(recipe.title||recipe.name||'').replace(/\"/g,'&quot;')}">
         <button class="btn-swap">🔗</button>
         <button class="btn-fav-delete" title="Supprimer des favoris">🗑️</button>
         <div class="meal-header">
@@ -352,7 +352,9 @@
     } catch (err) {
       try {
         let mockRes = await fetch('mock-recipes.json');
-        if (!mockRes || !mockRes.ok) { mockRes = await fetch('/mock-recipes.json'); }
+        if (!mockRes || !mockRes.ok) {
+          mockRes = await fetch('/mock-recipes.json');
+        }
         if (mockRes && mockRes.ok) {
           const arr = await mockRes.json();
           const qn = q.toString().toLowerCase();
