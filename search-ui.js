@@ -56,19 +56,17 @@
     try {
       const seen = new Set();
       const unique = [];
-
-      const normalizeText = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();
-
       for (const r of list || []) {
-        const url = (r && (r.url || r.link) || '').toString().trim();
-        let key = url || '';
-        if (!key) {
-          const title = normalizeText(r && (r.title || r.name) || '');
-          const tokens = title.split(/\s+/).filter(Boolean).sort().join(' ');
-          key = tokens || JSON.stringify(r || {}).slice(0,200);
-        }
-        if (!seen.has(key)) {
+        const key = (r && (r.url || r.link || r.title || r.name) || '').toString();
+        if (key) {
+          if (seen.has(key)) continue;
           seen.add(key);
+          unique.push(r);
+        } else {
+          // fallback: stringify small snapshot to detect duplicates
+          const k2 = JSON.stringify(r || {}).slice(0,200);
+          if (seen.has(k2)) continue;
+          seen.add(k2);
           unique.push(r);
         }
       }
