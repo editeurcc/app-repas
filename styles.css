@@ -592,6 +592,15 @@ body.dark-mode .modal-footer {
   }
 }
 
+/* Force 4 columns on wide desktop screens for favorites (preserve mobile rules) */
+@media (min-width: 1200px) {
+  #favorites-section .menu-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    justify-content: start;
+  }
+}
+
 .day-card {
   background: var(--glass-bg);
   backdrop-filter: blur(16px);
