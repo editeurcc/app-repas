@@ -97,7 +97,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Force the card to be fully expanded for print
         clonedCard.classList.add('expanded');
-        
+
+        // Add print-specific override styles to avoid mobile layout forcing many pages
+        const printStyle = document.createElement('style');
+        printStyle.textContent = "@media print { html, body { height: auto !important; overflow: visible !important; } #print-container, #print-container * { max-height: none !important; height: auto !important; overflow: visible !important; } .meal-card { page-break-inside: avoid; break-inside: avoid; -webkit-print-color-adjust: exact; } }";
+
+        printContainer.appendChild(printStyle);
         printContainer.appendChild(clonedCard);
         document.body.appendChild(printContainer);
         
@@ -245,7 +250,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <input type="checkbox" class="pantry-toggle" ${isChecked ? 'checked' : ''} onchange="togglePantry('${itemKey}')">
                                     <span class="ing-name">${item.nom.charAt(0).toUpperCase() + item.nom.slice(1)}</span>
                                 </div>
-                                <span class="ing-qty">${item.quantite} ${item.unite !== 'pièce' && item.unite !== 'pièces' ? item.unite : ''}</span>
                             </li>
                         `;
                     }).join('')}
@@ -361,6 +365,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     renderMenu();
+    // Masquer le message d'attente des recettes après initialisation
+    try {
+        const hint = document.getElementById('search-hint');
+        if (hint) hint.style.display = 'none';
+    } catch (e) { /* ignore */ }
 
     /**
      * Permet d'ajouter depuis une source externe une recette normalisée au menu.
