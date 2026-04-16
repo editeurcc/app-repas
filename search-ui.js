@@ -163,6 +163,13 @@
   async function loadFavorites() {
     try {
       const apiBase = getApiBaseForClient();
+      // If configured API is on a different origin, avoid calling it from the browser (prevents CORS errors during dev)
+      if (apiBase) {
+        try {
+          const apiOrigin = new URL(apiBase).origin;
+          if (apiOrigin !== location.origin) throw new Error('cross-origin-api');
+        } catch (e) { throw new Error('api-unavailable'); }
+      }
       if (API_AVAILABLE === false) throw new Error('api-unavailable');
       const url = apiBase ? `${apiBase}/api/favorites` : '/api/favorites';
       const res = await fetch(url);
@@ -178,6 +185,10 @@
   async function addFavorite(recipe) {
     if (!recipe || !recipe.url) return;
     const apiBase = getApiBaseForClient();
+    // Avoid calling cross-origin API from client during development (use localStorage fallback)
+    if (apiBase) {
+      try { if (new URL(apiBase).origin !== location.origin) { API_AVAILABLE = false; } } catch(e){ API_AVAILABLE = false; }
+    }
     if (API_AVAILABLE === false || !apiBase) {
       const favs = loadFavoritesSync();
       if (!favs.some(f => f.url === recipe.url)) {
@@ -209,6 +220,10 @@
   async function removeFavorite(url) {
     if (!url) return;
     const apiBase = getApiBaseForClient();
+    // Avoid cross-origin fetches when API is on different origin during dev
+    if (apiBase) {
+      try { if (new URL(apiBase).origin !== location.origin) { API_AVAILABLE = false; } } catch(e){ API_AVAILABLE = false; }
+    }
     if (API_AVAILABLE === false || !apiBase) {
       const favs = loadFavoritesSync().filter(f => f.url !== url);
       localStorage.setItem('favorites', JSON.stringify(favs));
@@ -238,11 +253,11 @@
       container.innerHTML = '<p style="color:var(--text-muted);">Aucun favori pour le moment.</p>';
       return;
     }
-    const wrap = document.createElement('div');
-    wrap.className = 'menu-grid';
-    wrap.innerHTML = favs.map(f => createCard(f, true)).join('');
-    container.appendChild(wrap);
-    wrap.querySelectorAll('.btn-fav-delete').forEach(btn => {
+    // Inject cards directly into the favorites container (avoid nested .menu-grid wrappers)
+    container.innerHTML = favs.map(f => createCard(f, true)).join('');
+
+    // Attach handlers to the newly injected cards
+    container.querySelectorAll('.btn-fav-delete').forEach(btn => {
       btn.addEventListener('click', async (e)=>{
         e.stopPropagation();
         const card = btn.closest('.meal-card');
@@ -253,7 +268,7 @@
         }
       });
     });
-    wrap.querySelectorAll('[data-action]').forEach(btn => {
+    container.querySelectorAll('[data-action]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const action = btn.getAttribute('data-action');
@@ -272,7 +287,7 @@
         }
       });
     });
-    wrap.querySelectorAll('.meal-card').forEach(card => {
+    container.querySelectorAll('.meal-card').forEach(card => {
       card.addEventListener('click', (e) => {
         e.stopPropagation();
         if (e.target.closest('.btn-swap')) return;
